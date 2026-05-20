@@ -17,13 +17,14 @@ class Config:
     CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
     
     # Training hyperparameters
-    BATCH_SIZE = 64
+    BATCH_SIZE = 64 * max(1, torch.cuda.device_count() if torch.cuda.is_available() else 1)
     LEARNING_RATE = 0.001
     EPOCHS = 50
     SEED = 42
     NUM_WORKERS = 10
     
     # Device
+    NUM_GPUS = torch.cuda.device_count() if torch.cuda.is_available() else 0
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Character mappings (computed from CHARS)

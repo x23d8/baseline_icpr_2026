@@ -79,15 +79,23 @@ def train_pipeline(pretrained_weights=None):
     elif pretrained_weights:
         print(f"⚠️ Weights không tìm thấy: {pretrained_weights} — train từ đầu")
 
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        model = nn.DataParallel(model)
+        print(f"🖥️  DataParallel — sử dụng {num_gpus} GPU")
+    else:
+        print(f"🖥️  Device: {Config.DEVICE}")
+
     criterion = nn.CTCLoss(blank=0, zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer, 
-        max_lr=Config.LEARNING_RATE, 
-        steps_per_epoch=len(train_loader), 
+        optimizer,
+        max_lr=Config.LEARNING_RATE,
+        steps_per_epoch=len(train_loader),
         epochs=Config.EPOCHS
     )
-    scaler = GradScaler()
+    use_amp = Config.DEVICE.type == 'cuda'
+    scaler = GradScaler(enabled=use_amp)
 
     best_acc = 0.0
     
@@ -103,7 +111,7 @@ def train_pipeline(pretrained_weights=None):
             
             optimizer.zero_grad(set_to_none=True)
             
-            with autocast('cuda'):
+            with autocast(Config.DEVICE.type, enabled=use_amp):
                 preds = model(images)
                 preds_permuted = preds.permute(1, 0, 2)
                 input_lengths = torch.full(
@@ -165,7 +173,8 @@ def train_pipeline(pretrained_weights=None):
         # Save best model
         if val_acc > best_acc:
             best_acc = val_acc
-            torch.save(model.state_dict(), "best_model.pth")
+            state = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
+            torch.save(state, "best_model.pth")
             print(f" -> ⭐ Saved Best Model! ({val_acc:.2f}%)")
 
 
