@@ -28,11 +28,11 @@ except ImportError:
     from utils import seed_everything, decode_predictions
 
 
-def train_pipeline():
+def train_pipeline(pretrained_weights=None):
     """Main training pipeline."""
     seed_everything(Config.SEED)
     print(f"🚀 TRAINING START | Device: {Config.DEVICE}")
-    
+
     # Check data directory
     if not os.path.exists(Config.DATA_ROOT):
         print(f"❌ LỖI: Sai đường dẫn DATA_ROOT: {Config.DATA_ROOT}")
@@ -71,6 +71,14 @@ def train_pipeline():
 
     # Initialize model, loss, optimizer
     model = MultiFrameCRNN(num_classes=Config.NUM_CLASSES).to(Config.DEVICE)
+
+    if pretrained_weights and os.path.exists(pretrained_weights):
+        state_dict = torch.load(pretrained_weights, map_location=Config.DEVICE)
+        model.load_state_dict(state_dict, strict=False)
+        print(f"✅ Loaded pretrained weights: {pretrained_weights}")
+    elif pretrained_weights:
+        print(f"⚠️ Weights không tìm thấy: {pretrained_weights} — train từ đầu")
+
     criterion = nn.CTCLoss(blank=0, zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=Config.LEARNING_RATE, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.OneCycleLR(
